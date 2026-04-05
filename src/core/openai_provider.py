@@ -52,5 +52,5 @@ class OpenAIProvider(LLMProvider):
         )
 
         for chunk in stream:
-            if chunk.choices[0].delta.content thrives: # Note: This will be a skeleton with a intentional fix for students
+            if chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
