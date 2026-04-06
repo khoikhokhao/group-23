@@ -1,74 +1,80 @@
-import os
+# lab3/agent.py
 import re
-from typing import List, Dict, Any, Optional
-from src.core.llm_provider import LLMProvider
-from src.telemetry.logger import logger
+from openai import OpenAI
+from tools import TOOLS_MAP
 
-class ReActAgent:
-    """
-    SKELETON: A ReAct-style Agent that follows the Thought-Action-Observation loop.
-    Students should implement the core loop logic and tool execution.
-    """
+# TODO: Thay API Key của bạn vào đây
+client = OpenAI(api_key="your api key")
+
+SYSTEM_PROMPT = """Bạn là một ReAct Agent hỗ trợ Headhunter trích xuất thông tin.
+Bạn có quyền truy cập các công cụ sau:
+1. search_candidates(keyword: str): Tìm danh sách ứng viên (trả về mảng JSON).
+2. get_profile_text(profile_id: str): Lấy text chi tiết của ứng viên bằng ID (truyền đúng ID, VD: U01).
+
+Để sử dụng công cụ, bạn BẮT BUỘC tuân thủ định dạng sau (không thêm bớt):
+Thought: Suy nghĩ của bạn
+Action: tên_công_cụ_cần_gọi
+Action Input: tham_số_truyền_vào
+
+Sau khi có Observation, hãy suy nghĩ tiếp. 
+Khi đã có đủ thông tin, bạn DỪNG LẠI bằng định dạng:
+Thought: Tôi đã có đủ thông tin.
+Final Answer: Câu trả lời cuối cùng gửi cho người dùng.
+
+Ranh giới an toàn: KHÔNG bịa email/sđt. Nếu tool trả về [], hãy báo cáo là không tìm thấy.
+"""
+
+MAX_ITERATIONS = 5
+
+def run_agent(user_query: str):
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_query}
+    ]
     
-    def __init__(self, llm: LLMProvider, tools: List[Dict[str, Any]], max_steps: int = 5):
-        self.llm = llm
-        self.tools = tools
-        self.max_steps = max_steps
-        self.history = []
-
-    def get_system_prompt(self) -> str:
-        """
-        TODO: Implement the system prompt that instructs the agent to follow ReAct.
-        Should include:
-        1.  Available tools and their descriptions.
-        2.  Format instructions: Thought, Action, Observation.
-        """
-        tool_descriptions = "\n".join([f"- {t['name']}: {t['description']}" for t in self.tools])
-        return f"""
-        You are an intelligent assistant. You have access to the following tools:
-        {tool_descriptions}
-
-        Use the following format:
-        Thought: your line of reasoning.
-        Action: tool_name(arguments)
-        Observation: result of the tool call.
-        ... (repeat Thought/Action/Observation if needed)
-        Final Answer: your final response.
-        """
-
-    def run(self, user_input: str) -> str:
-        """
-        TODO: Implement the ReAct loop logic.
-        1. Generate Thought + Action.
-        2. Parse Action and execute Tool.
-        3. Append Observation to prompt and repeat until Final Answer.
-        """
-        logger.log_event("AGENT_START", {"input": user_input, "model": self.llm.model_name})
+    print(f"\n{'='*40}\n[USER QUERY]: {user_query}\n{'-'*40}")
+    
+    for step in range(MAX_ITERATIONS):
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            temperature=0.0,
+            stop=["Observation:"] # Rất quan trọng: Bắt LLM dừng lại để code chạy Tool
+        )
         
-        current_prompt = user_input
-        steps = 0
+        output = response.choices[0].message.content.strip()
+        print(output)
+        messages.append({"role": "assistant", "content": output})
+        
+        # Check điều kiện hoàn thành
+        if "Final Answer:" in output:
+            print(f"{'='*40}\n")
+            return
+            
+        # Parse Tool
+        action_match = re.search(r"Action:\s*(.+)", output)
+        input_match = re.search(r"Action Input:\s*(.+)", output)
+        
+        if action_match and input_match:
+            action = action_match.group(1).strip()
+            action_input = input_match.group(1).strip(' "\'')
+            
+            if action in TOOLS_MAP:
+                observation = str(TOOLS_MAP[action](action_input))
+            else:
+                observation = f"Lỗi: Tool '{action}' không tồn tại."
+                
+            obs_msg = f"Observation: {observation}"
+            print(f"\033[92m{obs_msg}\033[0m") # In màu xanh lá cho dễ nhìn tool
+            messages.append({"role": "user", "content": obs_msg + "\n"})
+        else:
+            obs_msg = "Observation: Lỗi cú pháp. Hãy dùng đúng format Action và Action Input."
+            print(f"\033[91m{obs_msg}\033[0m")
+            messages.append({"role": "user", "content": obs_msg + "\n"})
 
-        while steps < self.max_steps:
-            # TODO: Generate LLM response
-            # result = self.llm.generate(current_prompt, system_prompt=self.get_system_prompt())
-            
-            # TODO: Parse Thought/Action from result
-            
-            # TODO: If Action found -> Call tool -> Append Observation
-            
-            # TODO: If Final Answer found -> Break loop
-            
-            steps += 1
-            
-        logger.log_event("AGENT_END", {"steps": steps})
-        return "Not implemented. Fill in the TODOs!"
+    # Nhánh Fallback / Escalation
+    print(f"\n\033[91m[FALLBACK]: Agent đã chạm ngưỡng {MAX_ITERATIONS} bước. Đang chuyển giao cho chuyên viên Headhunter xử lý.\033[0m\n{'='*40}")
 
-    def _execute_tool(self, tool_name: str, args: str) -> str:
-        """
-        Helper method to execute tools by name.
-        """
-        for tool in self.tools:
-            if tool['name'] == tool_name:
-                # TODO: Implement dynamic function calling or simple if/else
-                return f"Result of {tool_name}"
-        return f"Tool {tool_name} not found."
+if __name__ == "__main__":
+    # Test case 3 trong file bài tập
+    run_agent("Tìm cho tôi 1 ứng viên Data Analyst và cho biết email của họ.")
