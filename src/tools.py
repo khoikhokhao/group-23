@@ -19,6 +19,11 @@ def get_profile_text(profile_id: str) -> str:
     }
     return profiles.get(profile_id, "Không tìm thấy thông tin chi tiết cho ID này.")
 
+def testing_func() -> str:
+    """Hàm này chỉ để test xem có gọi được hay không, không phục vụ chức năng gì."""
+    return "Hàm testing_func đã được gọi thành công!"
+
+
 TOOLS_MAP = {
     "search_candidates": search_candidates,
     "get_profile_text": get_profile_text
