@@ -19,12 +19,10 @@ def get_profile_text(profile_id: str) -> str:
     }
     return profiles.get(profile_id, "Không tìm thấy thông tin chi tiết cho ID này.")
 
-<<<<<<< HEAD
 def testing_func() -> str:
     """Hàm này chỉ để test xem có gọi được hay không, không phục vụ chức năng gì."""
     return "Hàm testing_func đã được gọi thành công!"
 
-=======
 def send_email_to_candidate(email: str, subject: str, message: str) -> str:
     """
     Gửi email tiếp cận (cold email) đến ứng viên.
@@ -36,11 +34,11 @@ def send_email_to_candidate(email: str, subject: str, message: str) -> str:
     
     # Giả lập việc gửi email thành công
     return f"Thành công: Đã gửi email tới '{email}' với tiêu đề '{subject}'."
->>>>>>> 92beed24ba6e6d5299fac7ddfef1d423bb026bea
 
 TOOLS_MAP = {
     "search_candidates": search_candidates,
     "get_profile_text": get_profile_text,
+    "testing_func": testing_func,
     "send_email_to_candidate": send_email_to_candidate
 }
 
