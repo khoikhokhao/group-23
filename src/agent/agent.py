@@ -1,7 +1,9 @@
 # lab3/agent.py
 import re
+import time
 from openai import OpenAI
 from tools import TOOLS_MAP
+from src.telemetry.metrics import tracker
 
 # TODO: Thay API Key của bạn vào đây
 client = OpenAI(api_key="your api key")
@@ -35,11 +37,25 @@ def run_agent(user_query: str):
     print(f"\n{'='*40}\n[USER QUERY]: {user_query}\n{'-'*40}")
     
     for step in range(MAX_ITERATIONS):
+        start_time = time.time()
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
             temperature=0.0,
             stop=["Observation:"] # Rất quan trọng: Bắt LLM dừng lại để code chạy Tool
+        )
+        latency_ms = int((time.time() - start_time) * 1000)
+
+        usage = {
+            "prompt_tokens": response.usage.prompt_tokens,
+            "completion_tokens": response.usage.completion_tokens,
+            "total_tokens": response.usage.total_tokens,
+        }
+        tracker.track_request(
+            provider="openai",
+            model="gpt-4o-mini",
+            usage=usage,
+            latency_ms=latency_ms,
         )
         
         output = response.choices[0].message.content.strip()
@@ -48,6 +64,12 @@ def run_agent(user_query: str):
         
         # Check điều kiện hoàn thành
         if "Final Answer:" in output:
+            summary = tracker.summarize()
+            print("\n[METRICS SUMMARY]")
+            print(f"Average Latency (P50): {summary['average_latency_p50_ms']}ms")
+            print(f"Max Latency (P99): {summary['max_latency_p99_ms']}ms")
+            print(f"Average Tokens per Task: {summary['average_tokens_per_task']} tokens")
+            print(f"Total Cost of Test Suite: ${summary['total_cost_test_suite_usd']}")
             print(f"{'='*40}\n")
             return
             
@@ -73,6 +95,12 @@ def run_agent(user_query: str):
             messages.append({"role": "user", "content": obs_msg + "\n"})
 
     # Nhánh Fallback / Escalation
+    summary = tracker.summarize()
+    print("\n[METRICS SUMMARY]")
+    print(f"Average Latency (P50): {summary['average_latency_p50_ms']}ms")
+    print(f"Max Latency (P99): {summary['max_latency_p99_ms']}ms")
+    print(f"Average Tokens per Task: {summary['average_tokens_per_task']} tokens")
+    print(f"Total Cost of Test Suite: ${summary['total_cost_test_suite_usd']}")
     print(f"\n\033[91m[FALLBACK]: Agent đã chạm ngưỡng {MAX_ITERATIONS} bước. Đang chuyển giao cho chuyên viên Headhunter xử lý.\033[0m\n{'='*40}")
 
 if __name__ == "__main__":

@@ -1,5 +1,7 @@
 # lab3/chatbot.py
+import time
 from openai import OpenAI
+from src.telemetry.metrics import tracker
 
 # TODO: Thay API Key của bạn vào đây
 client = OpenAI(api_key="your api key")
@@ -10,6 +12,7 @@ Lưu ý: Bạn KHÔNG CÓ khả năng tìm kiếm internet hay dùng tool. Chỉ
 def run_chatbot(user_query: str):
     print(f"\n[USER QUERY]: {user_query}\n")
     try:
+        start_time = time.time()
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -18,7 +21,29 @@ def run_chatbot(user_query: str):
             ],
             temperature=0.3
         )
+        latency_ms = int((time.time() - start_time) * 1000)
+
+        usage = {
+            "prompt_tokens": response.usage.prompt_tokens,
+            "completion_tokens": response.usage.completion_tokens,
+            "total_tokens": response.usage.total_tokens,
+        }
+        tracker.track_request(
+            provider="openai",
+            model="gpt-4o-mini",
+            usage=usage,
+            latency_ms=latency_ms,
+        )
+
         print("[CHATBOT ANSWER]:\n", response.choices[0].message.content)
+
+        summary = tracker.summarize()
+        print("\n[METRICS SUMMARY]")
+        print(f"Average Latency (P50): {summary['average_latency_p50_ms']}ms")
+        print(f"Max Latency (P99): {summary['max_latency_p99_ms']}ms")
+        print(f"Average Tokens per Task: {summary['average_tokens_per_task']} tokens")
+        print(f"Total Cost of Test Suite: ${summary['total_cost_test_suite_usd']}")
+
     except Exception as e:
         print(f"Lỗi API: {e}")
 
