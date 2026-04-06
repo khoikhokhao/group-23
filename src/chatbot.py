@@ -1,10 +1,12 @@
 # lab3/chatbot.py
+import os
 import time
+from dotenv import load_dotenv
 from openai import OpenAI
 from src.telemetry.metrics import tracker
 
-# TODO: Thay API Key của bạn vào đây
-client = OpenAI(api_key="your api key")
+load_dotenv()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 SYSTEM_PROMPT = """Bạn là trợ lý Headhunter xuất sắc. Hãy trả lời câu hỏi của người dùng một cách chuyên nghiệp. 
 Lưu ý: Bạn KHÔNG CÓ khả năng tìm kiếm internet hay dùng tool. Chỉ trả lời bằng kiến thức nền có sẵn."""

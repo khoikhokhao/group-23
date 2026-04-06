@@ -1,12 +1,14 @@
 # lab3/agent.py
+import os
 import re
 import time
+from dotenv import load_dotenv
 from openai import OpenAI
-from tools import TOOLS_MAP
+from src.tools import TOOLS_MAP
 from src.telemetry.metrics import tracker
 
-# TODO: Thay API Key của bạn vào đây
-client = OpenAI(api_key="your api key")
+load_dotenv()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 SYSTEM_PROMPT = """Bạn là một ReAct Agent hỗ trợ Headhunter trích xuất thông tin.
 Bạn có quyền truy cập các công cụ sau:
